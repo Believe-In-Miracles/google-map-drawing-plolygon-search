@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Drawing tools</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+        html,
+        body,
+        #map-canvas {
+            height: 90%;
+            margin: 0px;
+            padding: 0px
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCJ3e15enpwP07fQ2-IXhT36BQ8ksic02Y&libraries=drawing"></script>
+    <script>
+        var map; // Global declaration of the map
+        var iw = new google.maps.InfoWindow(); // Global declaration of the infowindow
+        var lat_longs = new Array();
+        var markers = new Array();
+        var drawingManager;
+        var polygon1 = [];
+        let INF = 10000;
+
+        class Point {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+        }
+        const triangleCoords = [
+            { lat: 25.774, lng: -80.19 },
+            { lat: 18.466, lng: -66.118 },
+            { lat: 30.321, lng: -64.757 },
+            { lat: 35.321, lng: -69.757 },
+            { lat: 39.321, lng: -74.757 },
+            { lat: 32.321, lng: -80.757 },
+            { lat: 25.774, lng: -80.19 },
+        ];
+        const doctors = [
+            { lat: 31.221785552464436, lng: -82.99016796875 },
+            { lat: 37.666048326005374, lng: -78.55169140625 },
+            { lat: 36.72088819575073, lng: -84.04485546875 },
+            { lat: 34.687032297496536, lng: -88.35149609375 },
+            { lat: 32.67596775454473, lng: -89.88958203125 },
+            { lat: 32.74991792589087, lng: -98.06341015625 },
+            { lat: 38.461814957199884, lng: -90.06536328125 },
+            { lat: 36.43857414366429, lng: -92.13079296875 },
+            { lat: 39.72371849386248, lng: -103.60051953125 },
+            { lat: 36.08423243880007, lng: -108.65423046875 },
+            { lat: 33.19232828194876, lng: -99.51360546875 },
+            { lat: 30.087691417788953, lng: -98.01946484375 },
+            { lat: 33.37601053783669, lng: -111.33489453125 },
+            { lat: 37.28241180288125, lng: -118.54192578125 },
+            { lat: 43.8183276738805, lng: -118.3881171875 },
+            { lat: 42.50414812203899, lng: -121.332453125 },
+            { lat: 43.21283261793369, lng: -113.33440625 },
+            { lat: 47.05482626647242, lng: -119.9701484375 },
+            { lat: 45.506009681812415, lng: -105.0726875 },
+            { lat: 44.69955564163947, lng: -93.031671875 },
+            { lat: 41.623295703846786, lng: -97.5580390625 },
+            { lat: 40.59690528018063, lng: -84.2865546875 },
+            { lat: 44.60577017487231, lng: -84.594171875 },
+            { lat: 40.96294460662954, lng: -77.211359375 },
+            { lat: 44.76199502708343, lng: -70.11419140625 },
+            { lat: 43.21283261793369, lng: -75.3217109375 },
+            { lat: 42.08155955923437, lng: -72.377375 },
+            { lat: 37.457036146498986, lng: -81.1224921875 },
+            { lat: 36.04870992616934, lng: -96.2396796875 }
+        ];
+        var showDoctors = [];
+        function initialize() {
+            showDoctors=[];
+            polygon1=[];
+            var myLatlng = new google.maps.LatLng(37, -88);
+            var myOptions = {
+                zoom: 6,
+                center: myLatlng,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            }
+            map = new google.maps.Map(document.getElementById("map-canvas"), myOptions);
+            drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: [google.maps.drawing.OverlayType.POLYGON]
+                },
+                polygonOptions: {
+                    editable: true
+                }
+            });
+            drawingManager.setMap(map);
+            google.maps.event.addListener(drawingManager, "overlaycomplete", function (event) {
+                var newShape = event.overlay;
+                newShape.type = event.type;
+            });
+
+            google.maps.event.addListener(drawingManager, "overlaycomplete", async function (event) {
+                overlayClickListener(event.overlay);
+                const vertices = event.overlay.getPath();
+                // triangleCoords = [];
+                for (let i = 0; i < vertices.getLength(); i++) {
+                    const xy = vertices.getAt(i);
+                    polygon1.push(new Point(xy.lat(), xy.lng()));
+                    console.log("Coordinate " + i + "," + xy.lat() + "," + xy.lng() + "");
+                }
+                checkWithDoctor(map);
+                let ss = await event.overlay.getPath().getArray();
+                console.log(ss[0]);
+            });
+        }
+        function showMakers(map, pointValues) {
+            for (let i = 0; i < pointValues.length; i++) {
+                let Makerpoint = new google.maps.LatLng(
+                    pointValues[i]['lat'],
+                    pointValues[i]['lng']
+                );
+                let marker = new google.maps.Marker({
+                    position: Makerpoint,
+                    map: map
+                });
+            }
+        }
+        function overlayClickListener(overlay) {
+            google.maps.event.addListener(overlay, "mouseup", function (event) {
+                $('#vertices').val(overlay.getPath().getArray());
+                // console.log(overlay.getPath().getArray());
+            });
+        }
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+        /////////////////////////////////calculation/////////////////////
+        // Given three collinear points p, q, r,
+        // the function checks if point q lies
+        // on line segment 'pr'
+        function onSegment(p, q, r) {
+            if (q.x <= Math.max(p.x, r.x) &&
+                q.x >= Math.min(p.x, r.x) &&
+                q.y <= Math.max(p.y, r.y) &&
+                q.y >= Math.min(p.y, r.y)) {
+                return true;
+            }
+            return false;
+        }
+
+        // To find orientation of ordered triplet (p, q, r).
+        // The function returns following values
+        // 0 --> p, q and r are collinear
+        // 1 --> Clockwise
+        // 2 --> Counterclockwise
+        function orientation(p, q, r) {
+            let val = (q.y - p.y) * (r.x - q.x)
+                - (q.x - p.x) * (r.y - q.y);
+
+            if (val == 0) {
+                return 0; // collinear
+            }
+            return (val > 0) ? 1 : 2; // clock or counterclock wise
+        }
+
+        // The function that returns true if
+        // line segment 'p1q1' and 'p2q2' intersect.
+        function doIntersect(p1, q1, p2, q2) {
+            // Find the four orientations needed for
+            // general and special cases
+            let o1 = orientation(p1, q1, p2);
+            let o2 = orientation(p1, q1, q2);
+            let o3 = orientation(p2, q2, p1);
+            let o4 = orientation(p2, q2, q1);
+
+            // General case
+            if (o1 != o2 && o3 != o4) {
+                return true;
+            }
+
+            // Special Cases
+            // p1, q1 and p2 are collinear and
+            // p2 lies on segment p1q1
+            if (o1 == 0 && onSegment(p1, p2, q1)) {
+                return true;
+            }
+
+            // p1, q1 and p2 are collinear and
+            // q2 lies on segment p1q1
+            if (o2 == 0 && onSegment(p1, q2, q1)) {
+                return true;
+            }
+
+            // p2, q2 and p1 are collinear and
+            // p1 lies on segment p2q2
+            if (o3 == 0 && onSegment(p2, p1, q2)) {
+                return true;
+            }
+
+            // p2, q2 and q1 are collinear and
+            // q1 lies on segment p2q2
+            if (o4 == 0 && onSegment(p2, q1, q2)) {
+                return true;
+            }
+
+            // Doesn't fall in any of the above cases
+            return false;
+        }
+
+        // Returns true if the point p lies
+        // inside the polygon[] with n vertices
+        function isInside(polygon, n, p) {
+            // There must be at least 3 vertices in polygon[]
+            if (n < 3) {
+                return false;
+            }
+
+            // Create a point for line segment from p to infinite
+            let extreme = new Point(INF, p.y);
+
+            // Count intersections of the above line
+            // with sides of polygon
+            let count = 0, i = 0;
+            do {
+                let next = (i + 1) % n;
+
+                // Check if the line segment from 'p' to
+                // 'extreme' intersects with the line
+                // segment from 'polygon[i]' to 'polygon[next]'
+                if (doIntersect(polygon[i], polygon[next], p, extreme)) {
+                    // If the point 'p' is colinear with line
+                    // segment 'i-next', then check if it lies
+                    // on segment. If it lies, return true, otherwise false
+                    if (orientation(polygon[i], p, polygon[next]) == 0) {
+                        return onSegment(polygon[i], p,
+                            polygon[next]);
+                    }
+
+                    count++;
+                }
+                i = next;
+            } while (i != 0);
+
+            // Return true if count is odd, false otherwise
+            return (count % 2 == 1); // Same as (count%2 == 1)
+        }
+
+        function checkWithDoctor(map) {
+            let n = polygon1.length;
+            showDoctors=[];
+            for(let i=0;i<doctors.length;i++){
+                let p = new Point(doctors[i]['lat'], doctors[i]['lng']);
+                if (isInside(polygon1, n, p)) {
+                    showDoctors.push(doctors[i]);
+                }
+            }
+            showMakers(map,showDoctors);
+        }
+        $(function () {
+            $('#Refresh').click(function () {
+                //iterate polygon vertices?
+                initialize();
+            });
+        });
+
+    </script>
+</head>
+
+<body>
+    <div id="map-canvas"></div>
+    <form method="post" accept-charset="utf-8" id="map_form">
+        <input type="button" name="Refresh" value="Refresh" id="Refresh" />
+    </form>
+</body>
+
+</html>
